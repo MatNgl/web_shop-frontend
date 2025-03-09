@@ -1,226 +1,264 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Typography,
   CircularProgress,
-  Card,
-  CardMedia,
-  CardContent,
-  CardActions,
   Button,
   Box,
-  TextField,
-  Alert,
-} from '@mui/material';
-import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
-import Navbar from '../components/Navbar';
+  IconButton,
+} from "@mui/material";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
+import { useParams, Link } from "react-router-dom";
+import axios from "axios";
+import Navbar from "../components/Navbar";
+import Toast from "../components/Toast";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
-  const [cartMessage, setCartMessage] = useState('');
-  const [wishlistMessage, setWishlistMessage] = useState('');
   const [wishlistItems, setWishlistItems] = useState([]);
-  const token = localStorage.getItem('token');
+  const [selectedImage, setSelectedImage] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [toast, setToast] = useState({
+    open: false,
+    message: "",
+    type: "success",
+  });
+  const token = localStorage.getItem("token");
 
-  // Charger le produit
+  // ✅ Fonction pour corriger l'URL des images
+  const getImageUrl = (image) => {
+    if (!image)
+      return "https://via.placeholder.com/400x300?text=Image+Non+Disponible";
+    const imageUrl = typeof image === "object" ? image.url : image; // 🔥 Vérifie si c'est un objet
+    return imageUrl.startsWith("/uploads")
+      ? `http://localhost:3000${imageUrl}`
+      : imageUrl;
+  };
+
   useEffect(() => {
-    axios.get(`http://localhost:3000/produits/${id}`)
-      .then(response => {
-        setProduct(response.data);
+    axios
+      .get(`http://localhost:3000/produits/${id}`)
+      .then((response) => {
+        const productData = response.data;
+        setProduct(productData);
+
+        // ✅ Correction ici : Vérifier que productData.images est bien une liste valide
+        if (
+          productData.images &&
+          Array.isArray(productData.images) &&
+          productData.images.length > 0
+        ) {
+          setSelectedImage(getImageUrl(productData.images[0]));
+        } else {
+          setSelectedImage(
+            "https://via.placeholder.com/400x300?text=Image+Non+Disponible"
+          );
+        }
+
+        axios
+          .get("http://localhost:3000/produits/recommandations", {
+            params: { id },
+          })
+          .then((res) => setRelatedProducts(res.data))
+          .catch((err) =>
+            console.error("Erreur chargement produits similaires", err)
+          );
+
         setLoading(false);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Erreur lors de la récupération du produit", error);
         setLoading(false);
       });
   }, [id]);
 
-  // Charger la wishlist (si l'utilisateur est connecté)
   useEffect(() => {
     if (token) {
-      const fetchWishlist = async () => {
-        try {
-          const response = await axios.get('http://localhost:3000/wishlist', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          setWishlistItems(response.data.items);
-        } catch (error) {
-          console.error("Erreur lors du chargement de la wishlist", error);
-        }
-      };
-      fetchWishlist();
+      axios
+        .get("http://localhost:3000/wishlist", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((response) => setWishlistItems(response.data.items))
+        .catch((error) =>
+          console.error("Erreur lors du chargement de la wishlist", error)
+        );
     }
   }, [token]);
 
   const isInWishlist = () => {
-    return wishlistItems.find(item => item.produit.id === product.id);
+    return wishlistItems.some((item) => item.produit?.id === product?.id);
+  };
+
+  const showToast = (message, type = "success") => {
+    setToast({ open: true, message, type });
+  };
+
+  const handleWishlistToggle = () => {
+    if (!token) {
+      showToast("Vous devez être connecté pour gérer votre wishlist.", "error");
+      return;
+    }
+    if (isInWishlist()) {
+      const wishlistItem = wishlistItems.find(
+        (item) => item.produit.id === product.id
+      );
+      axios
+        .delete(`http://localhost:3000/wishlist/${wishlistItem.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then(() => {
+          showToast("Retiré de la wishlist !");
+          setWishlistItems((prev) =>
+            prev.filter((item) => item.produit.id !== product.id)
+          );
+        })
+        .catch(() =>
+          showToast("Erreur lors du retrait de la wishlist.", "error")
+        );
+    } else {
+      axios
+        .post(
+          "http://localhost:3000/wishlist/add",
+          { produitId: product.id },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        .then(() => {
+          showToast("Ajouté à la wishlist !");
+          setWishlistItems([...wishlistItems, { produit: product }]);
+        })
+        .catch(() =>
+          showToast("Erreur lors de l'ajout à la wishlist.", "error")
+        );
+    }
   };
 
   const handleAddToCart = () => {
     if (!token) {
-      setCartMessage("Vous devez être connecté pour ajouter au panier.");
+      showToast("Vous devez être connecté pour ajouter au panier.", "error");
       return;
     }
-    axios.post('http://localhost:3000/panier/add', 
-      { produitId: Number(product.id), quantite: Number(quantity) },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-      .then(() => {
-        setCartMessage("Produit ajouté au panier !");
-        setTimeout(() => setCartMessage(""), 3000);
-      })
-      .catch(error => {
-        console.error("Erreur lors de l'ajout au panier", error);
-        setCartMessage("Erreur lors de l'ajout au panier.");
-        setTimeout(() => setCartMessage(""), 3000);
-      });
-  };
 
-  const handleAddToWishlist = () => {
-    if (!token) {
-      setWishlistMessage("Vous devez être connecté pour ajouter à la wishlist.");
-      return;
-    }
-    axios.post('http://localhost:3000/wishlist/add',
-      { produitId: Number(product.id) },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
+    axios
+      .post(
+        "http://localhost:3000/panier/add",
+        { produitId: Number(product.id), quantite: quantity },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       .then(() => {
-        setWishlistMessage("Produit ajouté à la wishlist !");
-        // Recharger la wishlist
-        axios.get('http://localhost:3000/wishlist', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        .then(response => setWishlistItems(response.data.items))
-        .catch(error => console.error(error));
-        setTimeout(() => setWishlistMessage(""), 3000);
+        showToast("Ajouté au panier !");
       })
-      .catch(error => {
-        console.error("Erreur lors de l'ajout à la wishlist", error.response ? error.response.data : error);
-        setWishlistMessage("Erreur lors de l'ajout à la wishlist.");
-        setTimeout(() => setWishlistMessage(""), 3000);
-      });
-  };
-
-  const handleRemoveFromWishlist = () => {
-    const wishlistItem = isInWishlist();
-    if (wishlistItem) {
-      axios.delete(`http://localhost:3000/wishlist/${wishlistItem.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(() => {
-        setWishlistMessage("Produit retiré de la wishlist !");
-        axios.get('http://localhost:3000/wishlist', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        .then(response => setWishlistItems(response.data.items))
-        .catch(error => console.error(error));
-        setTimeout(() => setWishlistMessage(""), 3000);
-      })
-      .catch(error => {
-        console.error("Erreur lors du retrait de la wishlist", error.response ? error.response.data : error);
-        setWishlistMessage("Erreur lors du retrait de la wishlist.");
-        setTimeout(() => setWishlistMessage(""), 3000);
-      });
-    }
+      .catch(() => showToast("Erreur lors de l'ajout au panier.", "error"));
   };
 
   if (loading) {
     return (
-      <>
-        <Navbar />
-        <Container sx={{ mt: 4, textAlign: 'center' }}>
-          <CircularProgress />
-        </Container>
-      </>
-    );
-  }
-
-  if (!product) {
-    return (
-      <>
-        <Navbar />
-        <Container sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography variant="h6">Produit non trouvé</Typography>
-        </Container>
-      </>
+      <Container sx={{ mt: 4, textAlign: "center" }}>
+        <CircularProgress />
+      </Container>
     );
   }
 
   return (
     <>
       <Navbar />
-      <Container sx={{ mt: 4 }}>
-        <Card sx={{ p: 2 }}>
-          {product.image && (
-            <CardMedia
-              component="img"
-              image={product.image}
-              alt={product.nom}
-              sx={{ height: 300 }}
-            />
-          )}
-          <CardContent>
-            <Typography variant="h4" gutterBottom>
-              {product.nom}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              {product.description}
-            </Typography>
-            <Typography variant="h6" color="primary">
-              {product.prix} €
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1">
-                Stock : {product.stock} pièces
-              </Typography>
-              {product.statuts && product.statuts.length > 0 && (
-                <Typography variant="subtitle1">
-                  Statut : {product.statuts.map(s => s.nom).join(', ')}
-                </Typography>
-              )}
-              {product.promotion_id && (
-                <Typography variant="subtitle1" color="secondary">
-                  Promotion active (ID : {product.promotion_id})
-                </Typography>
-              )}
-            </Box>
-          </CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2 }}>
-            <TextField
-              label="Quantité"
-              type="number"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              inputProps={{ min: 1 }}
-              sx={{ width: 100 }}
-            />
-            <Button variant="contained" color="primary" onClick={handleAddToCart}>
-              Ajouter au panier
-            </Button>
-            {isInWishlist() ? (
-              <Button variant="outlined" color="error" onClick={handleRemoveFromWishlist}>
-                Retirer de la wishlist
-              </Button>
-            ) : (
-              <Button variant="outlined" color="secondary" onClick={handleAddToWishlist}>
-                Ajouter à la wishlist
-              </Button>
-            )}
+
+      <Container
+        sx={{
+          mt: 4,
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          gap: 4,
+        }}
+      >
+        {/* ✅ Image principale corrigée */}
+        <Box sx={{ flex: 1 }}>
+          <Box
+            component="img"
+            src={selectedImage}
+            alt={product.nom}
+            sx={{ width: "100%", borderRadius: 2, boxShadow: 3 }}
+          />
+        </Box>
+
+        {/* ✅ Informations du produit */}
+        <Box sx={{ flex: 1 }}>
+          {/* ✅ Titre avec wishlist */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Typography variant="h4">{product.nom}</Typography>
+            <IconButton onClick={handleWishlistToggle}>
+              <FavoriteIcon
+                sx={{ color: isInWishlist() ? "red" : "gray", fontSize: 32 }}
+              />
+            </IconButton>
           </Box>
-          {cartMessage && <Alert severity="success" sx={{ mt: 2 }}>{cartMessage}</Alert>}
-          {wishlistMessage && <Alert severity="info" sx={{ mt: 2 }}>{wishlistMessage}</Alert>}
-          <CardActions sx={{ justifyContent: 'center', mt: 2 }}>
-            <Button variant="contained" color="primary" component={Link} to="/produits">
-              Retour à la liste des produits
-            </Button>
-          </CardActions>
-        </Card>
+
+          <Typography variant="h5" color="primary" sx={{ mt: 1 }}>
+            {product.prix} €
+          </Typography>
+          <Typography
+            sx={{
+              mt: 1,
+              fontStyle: "italic",
+              color: product.stock > 0 ? "green" : "red",
+            }}
+          >
+            {product.stock > 0 ? "En stock" : "Rupture de stock"}
+          </Typography>
+          <Typography sx={{ mt: 2 }}>{product.description}</Typography>
+
+          <Typography sx={{ mt: 3, fontWeight: "bold" }}>Quantité</Typography>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              mt: 1,
+              border: "1px solid #ccc",
+              borderRadius: 2,
+              padding: "5px 10px",
+              width: "fit-content",
+            }}
+          >
+            <IconButton onClick={() => setQuantity(Math.max(1, quantity - 1))}>
+              <RemoveIcon />
+            </IconButton>
+            <Typography>{quantity}</Typography>
+            <IconButton onClick={() => setQuantity(quantity + 1)}>
+              <AddIcon />
+            </IconButton>
+          </Box>
+
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleAddToCart}
+            sx={{ mt: 3, width: "100%" }}
+          >
+            <ShoppingCartIcon sx={{ mr: 1 }} />
+            Ajouter au panier
+          </Button>
+        </Box>
       </Container>
+
+      {/* ✅ Toast pour notifications */}
+      <Toast
+        open={toast.open}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ open: false, message: "", type: "success" })}
+      />
     </>
   );
 };

@@ -1,5 +1,4 @@
-// src/components/ProductCard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardActionArea,
@@ -10,150 +9,154 @@ import {
   Button,
   IconButton,
   Box,
-  Alert,
-} from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+} from "@mui/material";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import CancelIcon from "@mui/icons-material/Cancel";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import Toast from "../components/Toast"; // ✅ Importation du Toast
 
 const ProductCard = ({ product }) => {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem("token");
   const [inWishlist, setInWishlist] = useState(false);
-  const [message, setMessage] = useState('');
+  const [hoverWishlist, setHoverWishlist] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [toast, setToast] = useState({ open: false, message: "", type: "success" });
 
-  // Vérifier la présence du produit dans la wishlist
   useEffect(() => {
     if (token) {
-      const fetchWishlist = async () => {
-        try {
-          const response = await axios.get(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/wishlist`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const found = response.data.items.find(
-            (item) => item.produit.id === product.id
-          );
+      axios
+        .get(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/wishlist`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((res) => {
+          const found = res.data.items.find((item) => item.produit.id === product.id);
           setInWishlist(!!found);
-        } catch (error) {
-          console.error("Erreur lors du chargement de la wishlist", error);
-        }
-      };
-      fetchWishlist();
+        })
+        .catch((error) => console.error("Erreur chargement wishlist", error));
     }
   }, [token, product.id]);
 
-  // Gérer l'ajout ou le retrait de la wishlist
-  const handleWishlistClick = async (e) => {
-    // Empêche le clic de se propager à la carte
+  const showToast = (message, type = "success") => {
+    setToast({ open: true, message, type });
+  };
+
+  const toggleWishlist = async (e) => {
     e.stopPropagation();
     if (!token) {
-      setMessage("Vous devez être connecté pour utiliser la wishlist.");
-      setTimeout(() => setMessage(""), 2000);
+      showToast("Vous devez être connecté pour utiliser la wishlist.", "error");
       return;
     }
-    if (inWishlist) {
-      // Retirer du wishlist
-      try {
-        const wishlistResponse = await axios.get(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/wishlist`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const wishlistItem = wishlistResponse.data.items.find(
-          (item) => item.produit.id === product.id
-        );
+
+    try {
+      if (inWishlist) {
+        const wishlistRes = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/wishlist`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const wishlistItem = wishlistRes.data.items.find((item) => item.produit.id === product.id);
+
         if (wishlistItem) {
-          await axios.delete(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/wishlist/${wishlistItem.id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setInWishlist(false);
-          setMessage("Retiré de la wishlist.");
+          await axios.delete(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/wishlist/${wishlistItem.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          showToast("Retiré de la wishlist.");
         }
-      } catch (error) {
-        console.error("Erreur lors du retrait de la wishlist", error.response ? error.response.data : error);
-        setMessage("Erreur lors du retrait de la wishlist.");
-      }
-    } else {
-      // Ajouter à la wishlist
-      try {
-        await axios.post(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/wishlist/add`,
+      } else {
+        await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/wishlist/add`, 
           { produitId: Number(product.id) },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        setInWishlist(true);
-        setMessage("Ajouté à la wishlist.");
-      } catch (error) {
-        console.error("Erreur lors de l'ajout à la wishlist", error.response ? error.response.data : error);
-        setMessage("Erreur lors de l'ajout à la wishlist.");
+        showToast("Ajouté à la wishlist !");
       }
+      setInWishlist(!inWishlist);
+    } catch (error) {
+      console.error("Erreur wishlist", error);
+      showToast("Erreur lors de la mise à jour de la wishlist.", "error");
     }
-    setTimeout(() => setMessage(""), 2000);
   };
 
-  // Gérer l'ajout direct au panier
   const handleAddToCart = (e) => {
-    // Empêche le clic de se propager à la carte
     e.stopPropagation();
     if (!token) {
-      setMessage("Vous devez être connecté pour ajouter au panier.");
-      setTimeout(() => setMessage(""), 2000);
+      showToast("Vous devez être connecté pour ajouter au panier.", "error");
       return;
     }
-    axios.post(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/panier/add`,
-      { produitId: Number(product.id), quantite: 1 },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
+
+    axios
+      .post(
+        `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/panier/add`,
+        { produitId: Number(product.id), quantite: 1 },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       .then(() => {
-        setMessage("Ajouté au panier !");
-        setTimeout(() => setMessage(""), 2000);
+        showToast("Ajouté au panier !");
       })
-      .catch((error) => {
-        console.error("Erreur lors de l'ajout au panier", error.response ? error.response.data : error);
-        setMessage("Erreur lors de l'ajout au panier.");
-        setTimeout(() => setMessage(""), 2000);
-      });
+      .catch(() => showToast("Erreur lors de l'ajout au panier.", "error"));
   };
 
-  // Si l'utilisateur clique sur la carte (en dehors des boutons), naviguer vers la page de détail du produit
   const handleCardClick = () => {
     navigate(`/produits/${product.id}`);
   };
 
+  // ✅ Gestion correcte des images sans modifications
+  const images = product.images || [];
+  const firstImage = images[0] ? (typeof images[0] === "object" ? images[0].url : images[0]) : "https://via.placeholder.com/300x200?text=Produit";
+  const secondImage = images[1] ? (typeof images[1] === "object" ? images[1].url : images[1]) : firstImage;
+
+  const buildImageUrl = (url) => (url && url.startsWith("/uploads") ? `http://localhost:3000${url}` : url);
+  const displayedImage = hovered ? buildImageUrl(secondImage) : buildImageUrl(firstImage);
+
   return (
-    <Card sx={{ maxWidth: 345, position: 'relative' }} onClick={handleCardClick}>
-      <CardActionArea>
-        <CardMedia
-          component="img"
-          height="200"
-          image={product.image || "https://via.placeholder.com/300x200?text=Produit"}
-          alt={product.nom}
-        />
-        <CardContent>
-          <Typography gutterBottom variant="h6" component="div">
-            {product.nom}
-          </Typography>
-          <Typography variant="body1" color="primary">
-            {product.prix} €
-          </Typography>
-        </CardContent>
-      </CardActionArea>
-      <CardActions sx={{ justifyContent: 'space-between' }}>
-        <Button onClick={handleAddToCart} variant="contained" color="primary">
-          Ajouter au panier
-        </Button>
-        <IconButton onClick={handleWishlistClick}>
-          <FavoriteIcon color={inWishlist ? "error" : "inherit"} />
-        </IconButton>
-      </CardActions>
-      {message && (
-        <Box sx={{ p: 1 }}>
-          <Alert severity="info">{message}</Alert>
-        </Box>
-      )}
-    </Card>
+    <>
+      <Card
+        sx={{
+          maxWidth: 345,
+          position: "relative",
+          transition: "transform 0.2s, box-shadow 0.2s",
+          "&:hover": {
+            transform: "scale(1.03)",
+            boxShadow: 4,
+          },
+        }}
+        onClick={handleCardClick}
+      >
+        <CardActionArea onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+          <CardMedia component="img" height="200" image={displayedImage} alt={product.nom} sx={{ transition: "opacity 0.3s ease-in-out" }} />
+          <CardContent>
+            <Typography gutterBottom variant="h6" component="div">
+              {product.nom}
+            </Typography>
+            <Typography variant="body1" color="primary">
+              {product.prix} €
+            </Typography>
+          </CardContent>
+        </CardActionArea>
+        <CardActions sx={{ justifyContent: "space-between" }}>
+          <Button onClick={handleAddToCart} variant="contained" color="primary">
+            <ShoppingCartIcon sx={{ mr: 1 }} />
+            Ajouter au panier
+          </Button>
+
+          <IconButton 
+            onClick={toggleWishlist} 
+            onMouseEnter={() => setHoverWishlist(true)} 
+            onMouseLeave={() => setHoverWishlist(false)}
+            sx={{
+              color: inWishlist ? "red" : "gray",
+              transition: "transform 0.2s ease-in-out, color 0.2s",
+              "&:hover": { color: inWishlist ? "red" : "#ff1744", transform: "scale(1.2)" },
+            }}
+          >
+            {hoverWishlist && inWishlist ? <CancelIcon sx={{ fontSize: 28 }} /> : <FavoriteIcon sx={{ fontSize: 28 }} />}
+          </IconButton>
+        </CardActions>
+      </Card>
+
+      {/* ✅ Toast bien intégré sans toucher aux images */}
+      <Toast open={toast.open} message={toast.message} type={toast.type} onClose={() => setToast({ open: false, message: "", type: "success" })} />
+    </>
   );
 };
 

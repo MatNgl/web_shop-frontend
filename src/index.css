@@ -1,32 +1,65 @@
+/* index.css */
+
+/* Importation des styles de base Tailwind */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Couleur de fond générale */
-html, body {
-  @apply bg-[#FEF9F3] min-h-screen m-0 p-0 box-border;
-  font-family: 'Helvetica Neue', Arial, sans-serif;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Ajustements globaux */
-h1, h2, h3, h4, h5, h6 {
-  @apply font-bold text-gray-800;
+body {
+  @apply bg-gray-100 text-gray-900;
 }
 
-p, label, span, input, button {
-  @apply text-gray-700;
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105;
 }
 
-a {
-  @apply text-blue-600 hover:underline;
+.card {
+  @apply bg-white shadow-lg rounded-lg overflow-hidden transition-transform duration-200 hover:scale-105 hover:shadow-2xl;
 }
 
-button {
-  @apply transition-all duration-300;
+/* Navbar */
+.navbar {
+  @apply bg-white shadow-md px-4 py-2 flex items-center justify-between;
 }
 
-/* Sélection de texte en surbrillance */
-::selection {
-  background-color: #FFD54F;
-  color: #fff;
+/* Boutons personnalisés */
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors;
+}
+
+/* Style pour les alertes */
+.alert {
+  @apply p-3 rounded bg-blue-100 text-blue-800;
+}
+
+/* Style pour la page de détail du produit en mode carousel */
+.product-detail {
+  @apply flex flex-col md:flex-row gap-6;
+}
+
+.product-detail-image {
+  @apply md:w-1/2;
+}
+
+.product-detail-info {
+  @apply md:w-1/2 flex flex-col gap-4;
+}
+
+/* Boutons du carousel (pour la navigation entre images) */
+.carousel-button {
+  @apply bg-black bg-opacity-50 text-white rounded hover:bg-opacity-70 transition-colors;
+}
+
+.navbar {
+  @apply bg-white shadow-md px-4 py-2 flex items-center justify-between;
+  border-bottom: 1px solid #ddd;
 }
