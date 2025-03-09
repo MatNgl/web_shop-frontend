@@ -17,27 +17,18 @@ import { useNavigate, Link } from 'react-router-dom';
 function LoginPage() {
   const navigate = useNavigate();
 
-  // États pour les champs du formulaire
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  // Afficher/masquer le mot de passe
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
+  const handleClickShowPassword = () => setShowPassword((prev) => !prev);
+  const handleMouseDownPassword = (e) => e.preventDefault();
 
-  const handleMouseDownPassword = (e) => {
-    e.preventDefault();
-  };
-
-  // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      // Remplace l'URL par ton endpoint NestJS
       const response = await axios.post('http://localhost:3000/auth/login', {
         email,
         password,

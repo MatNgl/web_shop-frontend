@@ -14,7 +14,8 @@ import { useNavigate, Link } from 'react-router-dom';
 function RegisterPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    name: '',
+    prenom: '',
+    nom: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -33,13 +34,16 @@ function RegisterPage() {
       return;
     }
     try {
-      // Remplacez l'URL par celle de votre backend NestJS
+      // On envoie les données attendues par le backend
       await axios.post('http://localhost:3000/auth/register', {
-        name: formData.name,
+        prenom: formData.prenom,
+        nom: formData.nom,
         email: formData.email,
         password: formData.password,
+        telephone: '0123456789', // Valeur par défaut, à adapter si besoin
+        role: 'user',
       });
-      // Redirection vers la page de connexion après inscription
+      // Rediriger vers la page de connexion après inscription
       navigate('/login');
     } catch (err) {
       console.error("Erreur lors de l'inscription :", err);
@@ -72,12 +76,21 @@ function RegisterPage() {
 
           <Box component="form" onSubmit={handleRegister} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
-              label="Nom"
-              name="name"
+              label="Prénom"
+              name="prenom"
               variant="outlined"
               fullWidth
               required
-              value={formData.name}
+              value={formData.prenom}
+              onChange={handleChange}
+            />
+            <TextField
+              label="Nom"
+              name="nom"
+              variant="outlined"
+              fullWidth
+              required
+              value={formData.nom}
               onChange={handleChange}
             />
             <TextField
